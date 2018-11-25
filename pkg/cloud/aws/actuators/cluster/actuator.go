@@ -69,14 +69,17 @@ func (a *Actuator) Reconcile(cluster *clusterv1.Cluster) error {
 		scope.ClusterConfig.CAPrivateKey = certificates.EncodePrivateKeyPEM(caKey)
 	}
 
+	klog.Infof("ReconcileNetwork for cluster %q", cluster.Name)
 	if err := scope.EC2.ReconcileNetwork(cluster.Name, &scope.ClusterStatus.Network); err != nil {
 		return errors.Errorf("unable to reconcile network: %v", err)
 	}
 
+	klog.Infof("ReconcileBastion for cluster %q", cluster.Name)
 	if err := scope.EC2.ReconcileBastion(cluster.Name, scope.ClusterConfig.SSHKeyName, scope.ClusterStatus); err != nil {
 		return errors.Errorf("unable to reconcile network: %v", err)
 	}
 
+	klog.Infof("ReconcileLoadbalancers for cluster %q", cluster.Name)
 	if err := scope.ELB.ReconcileLoadbalancers(cluster.Name, &scope.ClusterStatus.Network); err != nil {
 		return errors.Errorf("unable to reconcile load balancers: %v", err)
 	}

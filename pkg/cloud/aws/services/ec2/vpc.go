@@ -31,11 +31,12 @@ const (
 )
 
 func (s *Service) reconcileVPC(clusterName string, in *v1alpha1.VPC) error {
-	klog.V(2).Infof("Reconciling VPC")
+	klog.Infof("Reconciling VPC %q for cluster %q", in.ID, clusterName)
 
 	vpc, err := s.describeVPC(clusterName, in.ID)
 	if awserrors.IsNotFound(err) {
 		// Create a new vpc.
+		klog.Infof("Creating VPC %q for cluster %q", in.ID, clusterName)
 		vpc, err = s.createVPC(clusterName, in)
 		if err != nil {
 			return errors.Wrap(err, "failed to create new vpc")
@@ -46,7 +47,7 @@ func (s *Service) reconcileVPC(clusterName string, in *v1alpha1.VPC) error {
 	}
 
 	vpc.DeepCopyInto(in)
-	klog.V(2).Infof("Working on VPC %q", in.ID)
+	klog.Infof("Working on VPC %q for cluster %q", in.ID, clusterName)
 	return nil
 }
 
@@ -55,13 +56,14 @@ func (s *Service) createVPC(clusterName string, v *v1alpha1.VPC) (*v1alpha1.VPC,
 		v.CidrBlock = defaultVpcCidr
 	}
 
+	klog.Infof("creating VPC %q with cidr block %q for cluster %q", v.ID, v.CidrBlock, clusterName)
 	input := &ec2.CreateVpcInput{
 		CidrBlock: aws.String(v.CidrBlock),
 	}
 
 	out, err := s.EC2.CreateVpc(input)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create vpc")
+		return nil, errors.Wrapf(err, "failed to create vpc %q for cluster %q", v.ID, clusterName)
 	}
 
 	wReq := &ec2.DescribeVpcsInput{VpcIds: []*string{out.Vpc.VpcId}}
@@ -86,7 +88,7 @@ func (s *Service) createVPC(clusterName string, v *v1alpha1.VPC) (*v1alpha1.VPC,
 		return nil, errors.Wrapf(err, "failed to tag vpc %q", *out.Vpc.VpcId)
 	}
 
-	klog.V(2).Infof("Created new VPC %q with cidr %q", *out.Vpc.VpcId, *out.Vpc.CidrBlock)
+	klog.Infof("Created new VPC %q with cidr %q", *out.Vpc.VpcId, *out.Vpc.CidrBlock)
 
 	return &v1alpha1.VPC{
 		ID:        *out.Vpc.VpcId,

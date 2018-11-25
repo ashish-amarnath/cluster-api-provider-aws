@@ -58,7 +58,7 @@ func NewActuator(params ActuatorParams) *Actuator {
 
 // Create creates a machine and is invoked by the machine controller.
 func (a *Actuator) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
-	klog.V(2).Infof("Creating machine %v for cluster %v", machine.Name, cluster.Name)
+	klog.Errorf("Creating machine %v for cluster %v", machine.Name, cluster.Name)
 
 	scope, err := actuators.NewMachineScope(actuators.MachineScopeParams{Machine: machine, Cluster: cluster, Client: a.client})
 	if err != nil {
@@ -71,7 +71,7 @@ func (a *Actuator) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine
 	if err != nil {
 		return errors.Wrapf(err, "failed to retrieve controlplane url for cluster %q during machine creation", cluster.Name)
 	}
-	klog.V(2).Infof("controlPlaneURL for cluster %q=%q", cluster.Name, controlPlaneURL)
+	klog.Errorf("controlPlaneURL for cluster %q=%q", cluster.Name, controlPlaneURL)
 
 	var bootstrapToken string
 	if machine.ObjectMeta.Labels["set"] == "node" {
@@ -129,12 +129,12 @@ func (a *Actuator) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine
 
 func (a *Actuator) reconcileLBAttachment(scope *actuators.MachineScope, m *clusterv1.Machine, i *v1alpha1.Instance) error {
 	if m.ObjectMeta.Labels["set"] == "controlplane" {
-		klog.V(2).Infof("Registering controlplane machine %q with apiserverLB for cluster %q", m.Name, scope.ClusterConfig.Name)
+		klog.Errorf("Registering controlplane machine %q with apiserverLB for cluster %q", m.Name, scope.ClusterConfig.Name)
 		if err := scope.ELB.RegisterInstanceWithAPIServerELB(scope.ClusterConfig.Name, i.ID); err != nil {
 			return errors.Wrapf(err, "could not register control plane instance %q with load balancer for cluster %q", i.ID, scope.ClusterConfig.Name)
 		}
 	} else {
-		klog.V(2).Infof("Machine %q is not part of cluster %q's control plane", m.Name, scope.ClusterConfig.Name)
+		klog.Errorf("Machine %q is not part of cluster %q's control plane", m.Name, scope.ClusterConfig.Name)
 	}
 
 	return nil
@@ -142,7 +142,7 @@ func (a *Actuator) reconcileLBAttachment(scope *actuators.MachineScope, m *clust
 
 // Delete deletes a machine and is invoked by the Machine Controller
 func (a *Actuator) Delete(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
-	klog.Infof("Deleting machine %v for cluster %v.", machine.Name, cluster.Name)
+	klog.Errorf("Deleting machine %v for cluster %v.", machine.Name, cluster.Name)
 
 	scope, err := actuators.NewMachineScope(actuators.MachineScopeParams{Machine: machine, Cluster: cluster, Client: a.client})
 	if err != nil {
@@ -168,7 +168,7 @@ func (a *Actuator) Delete(cluster *clusterv1.Cluster, machine *clusterv1.Machine
 	// https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html
 	switch instance.State {
 	case v1alpha1.InstanceStateShuttingDown, v1alpha1.InstanceStateTerminated:
-		klog.Infof("instance %q is shutting down or already terminated", machine.Name)
+		klog.Errorf("instance %q is shutting down or already terminated", machine.Name)
 		return nil
 	default:
 		if err := scope.EC2.TerminateInstance(aws.StringValue(scope.MachineStatus.InstanceID)); err != nil {
@@ -184,7 +184,7 @@ func (a *Actuator) Delete(cluster *clusterv1.Cluster, machine *clusterv1.Machine
 // If the Update attempts to mutate any immutable state, the method will error
 // and no updates will be performed.
 func (a *Actuator) Update(cluster *clusterv1.Cluster, machine *clusterv1.Machine) error {
-	klog.Infof("Updating machine %v for cluster %v.", machine.Name, cluster.Name)
+	klog.Errorf("Updating machine %v for cluster %v.", machine.Name, cluster.Name)
 
 	scope, err := actuators.NewMachineScope(actuators.MachineScopeParams{Machine: machine, Cluster: cluster, Client: a.client})
 	if err != nil {
@@ -227,7 +227,7 @@ func (a *Actuator) Update(cluster *clusterv1.Cluster, machine *clusterv1.Machine
 
 // Exists test for the existence of a machine and is invoked by the Machine Controller
 func (a *Actuator) Exists(cluster *clusterv1.Cluster, machine *clusterv1.Machine) (bool, error) {
-	klog.V(2).Infof("Checking if machine %v for cluster %v exists", machine.Name, cluster.Name)
+	klog.Errorf("Checking if machine %v for cluster %v exists", machine.Name, cluster.Name)
 
 	scope, err := actuators.NewMachineScope(actuators.MachineScopeParams{Machine: machine, Cluster: cluster, Client: a.client})
 	if err != nil {
@@ -250,19 +250,19 @@ func (a *Actuator) Exists(cluster *clusterv1.Cluster, machine *clusterv1.Machine
 		return false, nil
 	}
 
-	klog.V(2).Infof("Machine %q is instance: %v", machine.Name, instance)
+	klog.Errorf("Machine %q is instance: %v", machine.Name, instance)
 
 	switch instance.State {
 	case v1alpha1.InstanceStateRunning:
-		klog.V(2).Infof("Machine %v is running", scope.MachineStatus.InstanceID)
+		klog.Errorf("Machine %v is running", scope.MachineStatus.InstanceID)
 	case v1alpha1.InstanceStatePending:
-		klog.V(2).Infof("Machine %v is pending", scope.MachineStatus.InstanceID)
+		klog.Errorf("Machine %v is pending", scope.MachineStatus.InstanceID)
 	default:
-		klog.V(2).Infof("Machine %q (%v) unknown state %s", machine.Name, scope.MachineStatus.InstanceID, instance.State)
+		klog.Errorf("Machine %q (%v) unknown state %s", machine.Name, scope.MachineStatus.InstanceID, instance.State)
 		return false, nil
 	}
 
-	klog.V(2).Infof("Reconciling load balancer attachment for machine %q (InstanceID=%v)", machine.Name, scope.MachineStatus.InstanceID)
+	klog.Errorf("Reconciling load balancer attachment for machine %q (InstanceID=%v)", machine.Name, scope.MachineStatus.InstanceID)
 	if err := a.reconcileLBAttachment(scope, machine, instance); err != nil {
 		return true, err
 	}

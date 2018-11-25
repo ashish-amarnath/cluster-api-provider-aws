@@ -33,7 +33,7 @@ import (
 
 // InstanceByTags returns the existing instance or nothing if it doesn't exist.
 func (s *Service) InstanceByTags(machine *clusterv1.Machine, cluster *clusterv1.Cluster) (*v1alpha1.Instance, error) {
-	klog.V(2).Infof("Looking for existing instance for machine %q in cluster %q", machine.Name, cluster.Name)
+	klog.Errorf("Looking for existing instance for machine %q in cluster %q", machine.Name, cluster.Name)
 
 	input := &ec2.DescribeInstancesInput{
 		Filters: []*ec2.Filter{
@@ -65,7 +65,7 @@ func (s *Service) InstanceByTags(machine *clusterv1.Machine, cluster *clusterv1.
 
 // InstanceIfExists returns the existing instance or nothing if it doesn't exist.
 func (s *Service) InstanceIfExists(instanceID *string) (*v1alpha1.Instance, error) {
-	klog.V(2).Infof("Looking for instance %q", *instanceID)
+	klog.Errorf("Looking for instance %q", *instanceID)
 
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: []*string{instanceID},
@@ -89,7 +89,7 @@ func (s *Service) InstanceIfExists(instanceID *string) (*v1alpha1.Instance, erro
 
 // CreateInstance runs an ec2 instance.
 func (s *Service) CreateInstance(machine *clusterv1.Machine, config *v1alpha1.AWSMachineProviderConfig, clusterStatus *v1alpha1.AWSClusterProviderStatus, clusterConfig *v1alpha1.AWSClusterProviderConfig, cluster *clusterv1.Cluster, bootstrapToken string) (*v1alpha1.Instance, error) {
-	klog.V(2).Infof("Creating a new instance for machine %q", machine.Name)
+	klog.Errorf("Creating a new instance for machine %q", machine.Name)
 
 	input := &v1alpha1.Instance{
 		Type:       config.InstanceType,
@@ -114,9 +114,9 @@ func (s *Service) CreateInstance(machine *clusterv1.Machine, config *v1alpha1.AW
 	if config.Subnet != nil && config.Subnet.ID != nil {
 		input.SubnetID = *config.Subnet.ID
 	} else {
-		klog.V(2).Infof("Filtering PrivateSubnets from")
-		for _, s := range clusterStatus.Network.Subnets {
-			klog.V(2).Infof("%s", s.String())
+		klog.Errorf("Filtering PrivateSubnets from: ")
+		for i, s := range clusterStatus.Network.Subnets {
+			klog.Errorf("%d: %s", i, s.String())
 		}
 		sns := clusterStatus.Network.Subnets.FilterPrivate()
 		if len(sns) == 0 {
@@ -124,12 +124,12 @@ func (s *Service) CreateInstance(machine *clusterv1.Machine, config *v1alpha1.AW
 				errors.Errorf("failed to run machine %q, no subnets available", machine.Name),
 			)
 		}
+		klog.Errorf("Chose subnet %q to create instance %q", sns[0].String(), machine.Name)
 		input.SubnetID = sns[0].ID
 	}
 
 	// apply values based on the role of the machine
 	if machine.ObjectMeta.Labels["set"] == "controlplane" {
-
 		if clusterStatus.Network.SecurityGroups[v1alpha1.SecurityGroupControlPlane] == nil {
 			return nil, awserrors.NewFailedDependency(
 				errors.New("failed to run controlplane, security group not available"),
@@ -191,7 +191,7 @@ func (s *Service) CreateInstance(machine *clusterv1.Machine, config *v1alpha1.AW
 // TerminateInstance terminates an EC2 instance.
 // Returns nil on success, error in all other cases.
 func (s *Service) TerminateInstance(instanceID string) error {
-	klog.V(2).Infof("Attempting to terminate instance with id %q", instanceID)
+	klog.Errorf("Attempting to terminate instance with id %q", instanceID)
 
 	input := &ec2.TerminateInstancesInput{
 		InstanceIds: aws.StringSlice([]string{instanceID}),
@@ -201,7 +201,7 @@ func (s *Service) TerminateInstance(instanceID string) error {
 		return errors.Wrapf(err, "failed to terminate instance with id %q", instanceID)
 	}
 
-	klog.V(2).Infof("Terminated instance with id %q", instanceID)
+	klog.Errorf("Terminated instance with id %q", instanceID)
 	return nil
 }
 
@@ -212,7 +212,7 @@ func (s *Service) TerminateInstanceAndWait(instanceID string) error {
 		return err
 	}
 
-	klog.V(2).Infof("Waiting for EC2 instance with id %q to terminate", instanceID)
+	klog.Errorf("Waiting for EC2 instance with id %q to terminate", instanceID)
 
 	input := &ec2.DescribeInstancesInput{
 		InstanceIds: aws.StringSlice([]string{instanceID}),
@@ -227,11 +227,11 @@ func (s *Service) TerminateInstanceAndWait(instanceID string) error {
 
 // CreateOrGetMachine will either return an existing instance or create and return an instance.
 func (s *Service) CreateOrGetMachine(machine *clusterv1.Machine, status *v1alpha1.AWSMachineProviderStatus, config *v1alpha1.AWSMachineProviderConfig, clusterStatus *v1alpha1.AWSClusterProviderStatus, clusterConfig *v1alpha1.AWSClusterProviderConfig, cluster *clusterv1.Cluster, bootstrapToken string) (*v1alpha1.Instance, error) {
-	klog.V(2).Infof("Attempting to create or get machine %q", machine.Name)
+	klog.Errorf("Attempting to create or get machine %q", machine.Name)
 
 	// instance id exists, try to get it
 	if status.InstanceID != nil {
-		klog.V(2).Infof("Looking up machine %q by id %q", machine.Name, *status.InstanceID)
+		klog.Errorf("Looking up machine %q by id %q", machine.Name, *status.InstanceID)
 
 		instance, err := s.InstanceIfExists(status.InstanceID)
 		if err != nil && !awserrors.IsNotFound(err) {
@@ -241,7 +241,7 @@ func (s *Service) CreateOrGetMachine(machine *clusterv1.Machine, status *v1alpha
 		}
 	}
 
-	klog.V(2).Infof("Looking up machine %q by tags", machine.Name)
+	klog.Errorf("Looking up machine %q by tags", machine.Name)
 	instance, err := s.InstanceByTags(machine, cluster)
 	if err != nil && !awserrors.IsNotFound(err) {
 		return nil, errors.Wrapf(err, "failed to query machine %q instance by tags", machine.Name)
@@ -307,7 +307,7 @@ func (s *Service) runInstance(i *v1alpha1.Instance) (*v1alpha1.Instance, error) 
 // UpdateInstanceSecurityGroups modifies the security groups of the given
 // EC2 instance.
 func (s *Service) UpdateInstanceSecurityGroups(instanceID string, ids []string) error {
-	klog.V(2).Infof("Attempting to update security groups on instance %q", instanceID)
+	klog.Errorf("Attempting to update security groups on instance %q", instanceID)
 
 	input := &ec2.ModifyInstanceAttributeInput{
 		InstanceId: aws.String(instanceID),
@@ -326,11 +326,11 @@ func (s *Service) UpdateInstanceSecurityGroups(instanceID string, ids []string) 
 // We may not always have to perform each action, so we check what we're
 // receiving to avoid calling AWS if we don't need to.
 func (s *Service) UpdateResourceTags(resourceID *string, create map[string]string, remove map[string]string) error {
-	klog.V(2).Infof("Attempting to update tags on resource %q", *resourceID)
+	klog.Errorf("Attempting to update tags on resource %q", *resourceID)
 
 	// If we have anything to create or update
 	if len(create) > 0 {
-		klog.V(2).Infof("Attempting to create tags on resource %q", *resourceID)
+		klog.Errorf("Attempting to create tags on resource %q", *resourceID)
 
 		// Convert our create map into an array of *ec2.Tag
 		createTagsInput := converters.MapToTags(create)
@@ -349,7 +349,7 @@ func (s *Service) UpdateResourceTags(resourceID *string, create map[string]strin
 
 	// If we have anything to remove
 	if len(remove) > 0 {
-		klog.V(2).Infof("Attempting to delete tags on resource %q", *resourceID)
+		klog.Errorf("Attempting to delete tags on resource %q", *resourceID)
 
 		// Convert our remove map into an array of *ec2.Tag
 		removeTagsInput := converters.MapToTags(remove)

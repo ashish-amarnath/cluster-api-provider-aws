@@ -30,7 +30,7 @@ import (
 
 // ReconcileLoadbalancers reconciles the load balancers for the given cluster.
 func (s *Service) ReconcileLoadbalancers(clusterName string, network *v1alpha1.Network) error {
-	klog.V(2).Info("Reconciling load balancers")
+	klog.V(2).Infof("Reconciling load balancers for cluster %q", clusterName)
 
 	// Get default api server spec.
 	spec := s.getAPIServerClassicELBSpec(clusterName, network)
@@ -40,11 +40,12 @@ func (s *Service) ReconcileLoadbalancers(clusterName string, network *v1alpha1.N
 	if IsNotFound(err) {
 		apiELB, err = s.createClassicELB(spec)
 		if err != nil {
+			klog.V(2).Infof("Failed to create classicELB for cluster %q: %v", clusterName, err)
 			return err
 		}
-
-		klog.V(2).Infof("Created new classic load balancer for apiserver: %v", apiELB)
+		klog.V(2).Infof("Created new classic load balancer for cluster %q'sapiserver: %v", clusterName, apiELB)
 	} else if err != nil {
+		klog.V(2).Infof("Failed to describe classicELB for cluster %q: %v", clusterName, err)
 		return err
 	}
 
@@ -52,7 +53,7 @@ func (s *Service) ReconcileLoadbalancers(clusterName string, network *v1alpha1.N
 
 	apiELB.DeepCopyInto(&network.APIServerELB)
 
-	klog.V(2).Info("Reconcile load balancers completed successfully")
+	klog.V(2).Infof("Reconcile load balancers completed successfully for cluster %q", clusterName)
 	return nil
 }
 
@@ -260,7 +261,7 @@ func (s *Service) describeClassicELB(name string) (*v1alpha1.ClassicELB, error) 
 		LoadBalancerNames: aws.StringSlice([]string{name}),
 	}
 
-	klog.V(2).Infof("describing classic ELB with name: %s", name)
+	klog.V(2).Infof("Describing classic ELB with name: %s", name)
 
 	out, err := s.ELB.DescribeLoadBalancers(input)
 	if err != nil {
