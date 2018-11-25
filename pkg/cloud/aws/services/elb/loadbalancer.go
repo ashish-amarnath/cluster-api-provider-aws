@@ -109,14 +109,17 @@ func (s *Service) RegisterInstanceWithClassicELB(instanceID string, loadBalancer
 
 // RegisterInstanceWithAPIServerELB registers an instance with a classic ELB
 func (s *Service) RegisterInstanceWithAPIServerELB(clusterName string, instanceID string) error {
+	lbName := GenerateELBName(clusterName, TagValueAPIServerRole)
+	klog.V(2).Infof("Attempting to register instance ID %q with apiserver loadbalancer %q for cluster %q", instanceID, lbName, clusterName)
 	input := &elb.RegisterInstancesWithLoadBalancerInput{
 		Instances:        []*elb.Instance{{InstanceId: aws.String(instanceID)}},
-		LoadBalancerName: aws.String(GenerateELBName(clusterName, TagValueAPIServerRole)),
+		LoadBalancerName: aws.String(lbName),
 	}
 
 	_, err := s.ELB.RegisterInstancesWithLoadBalancer(input)
 
 	if err != nil {
+		klog.Errorf("failed to register instance %q with loadbalancer %q for cluster %q: %v", instanceID, lbName, clusterName, err)
 		return err
 	}
 
@@ -256,6 +259,8 @@ func (s *Service) describeClassicELB(name string) (*v1alpha1.ClassicELB, error) 
 	input := &elb.DescribeLoadBalancersInput{
 		LoadBalancerNames: aws.StringSlice([]string{name}),
 	}
+
+	klog.V(2).Infof("describing classic ELB with name: %s", name)
 
 	out, err := s.ELB.DescribeLoadBalancers(input)
 	if err != nil {

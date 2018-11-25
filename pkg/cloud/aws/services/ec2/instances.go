@@ -114,6 +114,10 @@ func (s *Service) CreateInstance(machine *clusterv1.Machine, config *v1alpha1.AW
 	if config.Subnet != nil && config.Subnet.ID != nil {
 		input.SubnetID = *config.Subnet.ID
 	} else {
+		klog.V(2).Infof("Filtering PrivateSubnets from")
+		for _, s := range clusterStatus.Network.Subnets {
+			klog.V(2).Infof("%s", s.String())
+		}
 		sns := clusterStatus.Network.Subnets.FilterPrivate()
 		if len(sns) == 0 {
 			return nil, awserrors.NewFailedDependency(
