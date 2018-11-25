@@ -114,7 +114,7 @@ func (s *Service) CreateInstance(machine *clusterv1.Machine, config *v1alpha1.AW
 	if config.Subnet != nil && config.Subnet.ID != nil {
 		input.SubnetID = *config.Subnet.ID
 	} else {
-		klog.Errorf("Filtering PrivateSubnets from: ")
+		klog.Errorf("Filtering PrivateSubnets from %d subnets: ", len(clusterStatus.Network.Subnets))
 		for i, s := range clusterStatus.Network.Subnets {
 			klog.Errorf("%d: %s", i, s.String())
 		}

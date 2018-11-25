@@ -101,12 +101,25 @@ func (s *Scope) storeClusterConfig() error {
 func (s *Scope) storeClusterStatus() error {
 	ext, err := v1alpha1.EncodeClusterStatus(s.ClusterStatus)
 	if err != nil {
+		klog.Errorf("Failed to encode cluster status for cluster %q: %v", s.Cluster.Name, err)
 		return err
 	}
 
 	s.Cluster.Status.ProviderStatus = ext
+	if s.ClusterStatus != nil {
+		klog.Errorf("Updated status for cluster %q(encoded): %q", s.Cluster.Name, string(ext.Raw))
+		klog.Errorf("Network status for cluster %q:", s.Cluster.Name)
+		klog.Errorf("Subnets (count = %d)", len(s.ClusterStatus.Network.Subnets))
+		for i, s := range s.ClusterStatus.Network.Subnets {
+			klog.Errorf("%d: %q", i, s.String())
+		}
+		klog.Errorf("API server ELB=%q", s.ClusterStatus.Network.APIServerELB.DNSName)
+	} else {
+		klog.Errorf("ClusterStatus for %q is nil", s.Cluster.Name)
+	}
 
 	if _, err := s.ClusterClient.UpdateStatus(s.Cluster); err != nil {
+		klog.Errorf("Failed to update status for cluster %q: %v", s.Cluster.Name, err)
 		return err
 	}
 
@@ -184,6 +197,12 @@ func NewMachineScope(params MachineScopeParams) (*MachineScope, error) {
 	machineStatus, err := v1alpha1.MachineStatusFromProviderStatus(params.Machine.Status.ProviderStatus)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get machine provider status")
+	}
+
+	klog.Errorf("ClusterStatus for cluster %q", params.Cluster.Name)
+	klog.Errorf("Network >> Subnets: count=%d", len(scope.ClusterStatus.Network.Subnets))
+	for i, s := range scope.ClusterStatus.Network.Subnets {
+		klog.Errorf("%d: %s", i, s.String())
 	}
 
 	return &MachineScope{

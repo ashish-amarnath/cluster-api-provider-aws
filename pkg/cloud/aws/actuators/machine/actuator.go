@@ -99,6 +99,11 @@ func (a *Actuator) Create(cluster *clusterv1.Cluster, machine *clusterv1.Machine
 		}
 	}
 
+	klog.Errorf("Subnets for cluster %q, count=%d", cluster.Name, len(scope.ClusterStatus.Network.Subnets))
+	for i, s := range scope.ClusterStatus.Network.Subnets {
+		klog.Errorf("%d: %s", i, s.String())
+	}
+
 	i, err := scope.EC2.CreateOrGetMachine(machine, scope.MachineStatus, scope.MachineConfig, scope.ClusterStatus, scope.ClusterConfig, cluster, bootstrapToken)
 	if err != nil {
 		if awserrors.IsFailedDependency(errors.Cause(err)) {

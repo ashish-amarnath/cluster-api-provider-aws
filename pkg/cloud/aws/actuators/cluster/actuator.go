@@ -56,6 +56,17 @@ func (a *Actuator) Reconcile(cluster *clusterv1.Cluster) error {
 		return err
 	}
 
+	if cluster.Status.ProviderStatus != nil {
+		klog.Errorf("cluster %q's raw status %q", cluster.Name, string(cluster.Status.ProviderStatus.Raw))
+		klog.Errorf("Network status for cluster %q", cluster.Name)
+		klog.Errorf("subnetCount=%d", len(scope.ClusterStatus.Network.Subnets))
+		for i, s := range scope.ClusterStatus.Network.Subnets {
+			klog.Errorf("%d: %s", i, s.String())
+		}
+	} else {
+		klog.Errorf("cluster.Status.ProviderStatus is nil")
+	}
+
 	defer scope.Close()
 
 	// Store some config parameters in the status.
@@ -69,17 +80,17 @@ func (a *Actuator) Reconcile(cluster *clusterv1.Cluster) error {
 		scope.ClusterConfig.CAPrivateKey = certificates.EncodePrivateKeyPEM(caKey)
 	}
 
-	klog.Infof("ReconcileNetwork for cluster %q", cluster.Name)
+	klog.Errorf("ReconcileNetwork for cluster %q", cluster.Name)
 	if err := scope.EC2.ReconcileNetwork(cluster.Name, &scope.ClusterStatus.Network); err != nil {
 		return errors.Errorf("unable to reconcile network: %v", err)
 	}
 
-	klog.Infof("ReconcileBastion for cluster %q", cluster.Name)
+	klog.Errorf("ReconcileBastion for cluster %q", cluster.Name)
 	if err := scope.EC2.ReconcileBastion(cluster.Name, scope.ClusterConfig.SSHKeyName, scope.ClusterStatus); err != nil {
 		return errors.Errorf("unable to reconcile network: %v", err)
 	}
 
-	klog.Infof("ReconcileLoadbalancers for cluster %q", cluster.Name)
+	klog.Errorf("ReconcileLoadbalancers for cluster %q", cluster.Name)
 	if err := scope.ELB.ReconcileLoadbalancers(cluster.Name, &scope.ClusterStatus.Network); err != nil {
 		return errors.Errorf("unable to reconcile load balancers: %v", err)
 	}
