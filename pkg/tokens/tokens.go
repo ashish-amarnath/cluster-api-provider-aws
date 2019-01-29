@@ -27,6 +27,7 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	bootstrapapi "k8s.io/cluster-bootstrap/token/api"
 	bootstraputil "k8s.io/cluster-bootstrap/token/util"
+	"k8s.io/klog"
 )
 
 var (
@@ -48,6 +49,7 @@ func NewBootstrap(client corev1.SecretsGetter, ttl time.Duration) (string, error
 	tokenSecret := substrs[2]
 
 	secretName := bootstraputil.BootstrapTokenSecretName(tokenID)
+	tokenExpiration := time.Now().UTC().Add(ttl).Format(time.RFC3339)
 	secretToken := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretName,
@@ -57,17 +59,24 @@ func NewBootstrap(client corev1.SecretsGetter, ttl time.Duration) (string, error
 		Data: map[string][]byte{
 			bootstrapapi.BootstrapTokenIDKey:               []byte(tokenID),
 			bootstrapapi.BootstrapTokenSecretKey:           []byte(tokenSecret),
-			bootstrapapi.BootstrapTokenExpirationKey:       []byte(time.Now().UTC().Add(ttl).Format(time.RFC3339)),
+			bootstrapapi.BootstrapTokenExpirationKey:       []byte(tokenExpiration),
 			bootstrapapi.BootstrapTokenUsageSigningKey:     []byte("true"),
 			bootstrapapi.BootstrapTokenUsageAuthentication: []byte("true"),
 			bootstrapapi.BootstrapTokenExtraGroupsKey:      []byte("system:bootstrappers:kubeadm:default-node-token"),
 		},
 	}
 
-	err = TryRunCommand(func() error {
-		_, err := client.Secrets(secretToken.ObjectMeta.Namespace).Create(secretToken)
-		return err
-	}, MaximumRetries)
+	klog.Infof("ashish-amarnath: creating bootstrap token as secretName=%q: TokenID=%q, SecretKey=%q, expiration=%q",
+		secretName, tokenID, tokenSecret, tokenExpiration)
+
+	for i := 0; i < MaximumRetries; i++ {
+		_, err = client.Secrets(secretToken.ObjectMeta.Namespace).Create(secretToken)
+		if err == nil {
+			break
+		} else {
+			klog.Infof("Failed to create secret %q, retryCount=%d, err= %v", secretName, i, err)
+		}
+	}
 
 	if err != nil {
 		return "", errors.Wrap(err, "unable to create secret")

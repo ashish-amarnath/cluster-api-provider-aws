@@ -195,10 +195,16 @@ func (a *Actuator) getNodeJoinToken(cluster *clusterv1.Cluster, controlPlaneURL 
 		return "", errors.Wrapf(err, "failed to get client config for cluster at %q", controlPlaneURL)
 	}
 
+	klog.Infof("clientConfig: Host: %q", clientConfig.Host)
+	klog.Infof("clientConfig.TLSConfig: insecure=%t, ServerName=%q", clientConfig.TLSClientConfig.Insecure, clientConfig.TLSClientConfig.ServerName)
+	klog.Infof("clientConfig.TLSConfig.Cert=%q, Key=%q", string(clientConfig.TLSClientConfig.CertData), string(clientConfig.TLSClientConfig.KeyData))
+
 	coreClient, err := corev1.NewForConfig(clientConfig)
 	if err != nil {
 		return "", errors.Wrapf(err, "failed to initialize new corev1 client")
 	}
+
+	klog.Infof("ashish-amarnath: Using kubeconfig: \n%s\n", kubeConfig)
 
 	bootstrapToken, err := tokens.NewBootstrap(coreClient, 10*time.Minute)
 	if err != nil {
