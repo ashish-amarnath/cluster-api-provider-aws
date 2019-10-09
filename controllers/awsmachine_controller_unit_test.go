@@ -19,12 +19,16 @@ package controllers
 import (
 	"testing"
 
+	. "github.com/onsi/gomega"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/klog/klogr"
 	infrav1 "sigs.k8s.io/cluster-api-provider-aws/api/v1alpha2"
+	"sigs.k8s.io/cluster-api-provider-aws/pkg/cloud/scope"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1alpha2"
+	"sigs.k8s.io/cluster-api/errors"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 )
@@ -108,4 +112,42 @@ func TestAWSMachineReconciler_AWSClusterToAWSMachines(t *testing.T) {
 	if len(requests) != 2 {
 		t.Fatalf("Expected 2 but found %d requests", len(initObjects))
 	}
+}
+
+func TestAWSNachineReconciler_ReconcileNormal(t *testing.T) {
+
+	scheme, err := setupScheme()
+	if err != nil {
+		t.Fatal(err)
+	}
+	clusterName := "my-cluster"
+	initObjects := []runtime.Object{
+		newCluster(clusterName),
+		// Create two Machines with an infrastructure ref and one without.
+		newMachineWithInfrastructureRef(clusterName, "my-machine-0"),
+		newMachineWithInfrastructureRef(clusterName, "my-machine-1"),
+		newMachine(clusterName, "my-machine-2"),
+	}
+
+	client := fake.NewFakeClientWithScheme(scheme, initObjects...)
+
+	reconciler := &AWSMachineReconciler{
+		Client: client,
+		Log:    klogr.New(),
+	}
+
+	s := errors.InvalidConfigurationMachineError
+
+	ms := scope.MachineScope{
+		Logger: reconciler.Log.WithValues("namespace", "unit-test", "awsMachine", "unit-test"),
+		AWSMachine: &infrav1.AWSMachine{
+			Status: infrav1.AWSMachineStatus{
+				ErrorReason: &s,
+			},
+		},
+	}
+
+	res, err := reconciler.reconcileNormal(nil, &ms, nil)
+	Expect(err).To(BeNil())
+	Expect(res.RequeueAfter).To(BeZero())
 }
